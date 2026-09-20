@@ -71,18 +71,51 @@ void saveKnownNetwork(const char* ssid, const char* pass) {
     prefs.putString(("ssid_" + String(targetIdx)).c_str(), savedNetworks[targetIdx].ssid);
     prefs.putString(("pass_" + String(targetIdx)).c_str(), savedNetworks[targetIdx].pass);
   }
+  prefs.putString("last_ssid", ssid);
+  prefs.putString("last_pass", pass);
   prefs.end();
 }
 
 
 bool autoConnectWiFi() {
   loadSavedNetworks();
-  Serial.println("[WiFi] Escaneando el entorno para autoconectar...");
+  
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.setSleep(false); // Máxima potencia de antena, elimina latencias en DHCP
+
+  // 1. FAST CONNECT (Conexión Directa en 1 a 2 segundos)
+  // Intenta de inmediato la última red exitosa sin perder tiempo escaneando canales
+  if (savedNetworksCount > 0) {
+    prefs.begin("crealo_wifi", true);
+    String lastSsid = prefs.getString("last_ssid", savedNetworks[0].ssid);
+    String lastPass = prefs.getString("last_pass", savedNetworks[0].pass);
+    prefs.end();
+
+    if (lastSsid.length() > 0) {
+      Serial.printf("[WiFi] Conexión Rápida Directa a: %s...\n", lastSsid.c_str());
+      WiFi.begin(lastSsid.c_str(), lastPass.c_str());
+
+      unsigned long startFast = millis();
+      while (WiFi.status() != WL_CONNECTED && (millis() - startFast < 3200)) {
+        delay(100);
+        Serial.print(".");
+      }
+
+      if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\n[WiFi] ¡Conectado ultra-rápido! IP: " + WiFi.localIP().toString());
+        return true;
+      }
+      Serial.println("\n[WiFi] Red no disponible de inmediato. Buscando redes cercanas...");
+    }
+  }
+
+  // 2. FALLBACK SCAN (Solo si la conexión directa falló por cambio de router/casa)
   WiFi.disconnect();
   delay(100);
 
-  int n = WiFi.scanNetworks();
+  Serial.println("[WiFi] Escaneando entorno para autoconectar...");
+  int n = WiFi.scanNetworks(false, false, false, 200); // 200ms por canal
   Serial.printf("[WiFi] %d redes detectadas en el aire\n", n);
 
   int bestSavedIdx = -1;
@@ -101,22 +134,27 @@ bool autoConnectWiFi() {
       }
     }
   }
+  WiFi.scanDelete();
 
   if (bestSavedIdx == -1 && savedNetworksCount > 0) {
-    bestSavedIdx = 0; // Intentar red 0 por defecto
+    bestSavedIdx = 0; // Probar red 0 por defecto
   }
 
   if (bestSavedIdx >= 0) {
-    Serial.printf("[WiFi] Conectando a: %s\n", savedNetworks[bestSavedIdx].ssid);
+    Serial.printf("[WiFi] Conectando a mejor señal: %s\n", savedNetworks[bestSavedIdx].ssid);
     WiFi.begin(savedNetworks[bestSavedIdx].ssid, savedNetworks[bestSavedIdx].pass);
     int retries = 0;
     while (WiFi.status() != WL_CONNECTED && retries < 25) {
-      delay(350);
+      delay(250);
       Serial.print(".");
       retries++;
     }
     if (WiFi.status() == WL_CONNECTED) {
       Serial.println("\n[WiFi] Conectado exitosamente! IP: " + WiFi.localIP().toString());
+      prefs.begin("crealo_wifi", false);
+      prefs.putString("last_ssid", savedNetworks[bestSavedIdx].ssid);
+      prefs.putString("last_pass", savedNetworks[bestSavedIdx].pass);
+      prefs.end();
       return true;
     }
   }
@@ -133,7 +171,17 @@ void scanWifiNetworks() {
   tft.setTextColor(COLOR_CYAN, COLOR_CARD_BG);
   tft.drawCentreString("Buscando redes...", 160, 110, 2);
 
-  int n = WiFi.scanNetworks();
+  // Limpiar y resetear la radio WiFi para que el escáner no falle tras un error de conexión
+  WiFi.scanDelete();
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_STA);
+  delay(200);
+
+  int n = WiFi.scanNetworks(false, false, false, 300);
+  if (n <= 0) {
+    delay(150);
+    n = WiFi.scanNetworks();
+  }
   scannedNetworksCount = 0;
   if (n > 0) {
     for (int i = 0; i < n && scannedNetworksCount < MAX_SCANNED; i++) {
@@ -377,6 +425,14 @@ void networkTask(void *pvParameters) {
         lastFetchMillis = millis();
         fetchBinanceP2P(currentTradeType);
         hasNewDataToDisplay = true;
+      }
+    } else {
+      // Auto-reconexión silenciosa en Core 0 si el router parpadea durante el uso
+      static unsigned long lastBgReconnectMs = 0;
+      if (now - lastBgReconnectMs >= 15000 && !isWifiListOpen && !isWifiKbOpen) {
+        lastBgReconnectMs = now;
+        Serial.println("[WiFi-Task] Router sin señal. Intentando reconexión automática...");
+        WiFi.reconnect();
       }
     }
 
