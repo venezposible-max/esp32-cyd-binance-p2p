@@ -171,10 +171,13 @@ bool isDragging = false;
 int touchStartY = 0;
 int lastTouchY = 0;
 
+// FreeRTOS y Concurrencia Multinúcleo
 TaskHandle_t netTaskHandle = NULL;
 SemaphoreHandle_t p2pMutex = NULL;
 volatile bool requestImmediateFetch = false;
 volatile bool hasNewDataToDisplay   = false;
+volatile bool pendingAlertTransition = false;
+volatile bool pendingAlertFooterUpdate = false;
 unsigned long lastTouchMs           = 0;
 unsigned long lastFetchMillis       = 0;
 bool isFetching                     = false;

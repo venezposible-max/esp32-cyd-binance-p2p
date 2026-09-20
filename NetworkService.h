@@ -125,13 +125,13 @@ bool autoConnectWiFi() {
 
 
 void scanWifiNetworks() {
-  // Mostrar pantalla de búsqueda
-  tft.fillRoundRect(8, 20, 224, 284, 8, COLOR_CARD_BG);
-  tft.drawRoundRect(8, 20, 224, 284, 8, COLOR_CARD_BORDER);
+  // Mostrar pantalla de búsqueda centrada en modo horizontal 320x240
+  tft.fillRoundRect(16, 6, 288, 228, 8, COLOR_CARD_BG);
+  tft.drawRoundRect(16, 6, 288, 228, 8, COLOR_CARD_BORDER);
   tft.setTextColor(COLOR_BINANCE_YEL, COLOR_CARD_BG);
-  tft.drawCentreString("REDES WIFI", 120, 32, 2);
+  tft.drawCentreString("REDES WIFI", 160, 20, 2);
   tft.setTextColor(COLOR_CYAN, COLOR_CARD_BG);
-  tft.drawCentreString("Buscando redes...", 120, 140, 2);
+  tft.drawCentreString("Buscando redes...", 160, 110, 2);
 
   int n = WiFi.scanNetworks();
   scannedNetworksCount = 0;
@@ -251,11 +251,11 @@ bool fetchBinanceP2P(String tradeType) {
         if (currentCardPage >= totalPages) currentCardPage = totalPages - 1;
         if (currentCardPage < 0) currentCardPage = 0;
         
-        // Evaluar si la oferta #1 cumple con la alerta configurada
-        checkP2PAlerts();
-
         xSemaphoreGive(p2pMutex);
       }
+
+      // Evaluar si la oferta #1 cumple con la alerta configurada (fuera del Mutex para no bloquear a Core 1)
+      checkP2PAlerts();
 
       http.end();
       isFetching = false;

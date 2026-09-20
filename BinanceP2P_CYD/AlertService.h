@@ -112,12 +112,8 @@ void checkP2PAlerts() {
     alertTriggeredBankStr = adsList[0].banks;
     alertTriggeredCryptoStr = adsList[0].crypto;
 
-    // Si la pantalla estaba en salvapantallas, despertar de inmediato
-    if (isScreensaverActive) {
-      exitScreensaver();
-    } else {
-      drawFullScreenAlert();
-    }
+    // Señalizar a Core 1 para que realice la transición gráfica de forma segura en el bus SPI
+    pendingAlertTransition = true;
 
     // 1. Enviar notificación a Telegram con reintentos automáticos
     bool telegramSuccess = sendTelegramP2PAlert(adsList[0], target);
@@ -141,10 +137,8 @@ void checkP2PAlerts() {
       Serial.println("[ALERTA P2P] Fallo de red con Telegram tras 3 intentos. Meta permanece ARMADA.");
     }
 
-    // Actualizar pie de pantalla con el estado real de entrega
-    if (isFullScreenAlertOpen) {
-      drawFullScreenAlert();
-    }
+    // Señalizar a Core 1 para actualizar pie de pantalla con el estado de entrega
+    pendingAlertFooterUpdate = true;
   }
 }
 

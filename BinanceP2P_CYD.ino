@@ -150,6 +150,23 @@ void loop() {
     }
   }
 
+  // Transición gráfica segura de Alerta P2P ejecutada estrictamente en Core 1
+  if (pendingAlertTransition) {
+    pendingAlertTransition = false;
+    if (isScreensaverActive) {
+      exitScreensaver();
+    }
+    drawFullScreenAlert();
+  }
+
+  // Actualización segura de pie de alerta (confirmación de entrega en Telegram)
+  if (pendingAlertFooterUpdate) {
+    pendingAlertFooterUpdate = false;
+    if (isFullScreenAlertOpen) {
+      drawFullScreenAlert();
+    }
+  }
+
   // Auto-cierre de la Alerta a Pantalla Completa tras 2 minutos (120 seg)
   if (isFullScreenAlertOpen) {
     if (now - fullScreenAlertStartMs >= FULL_ALERT_DURATION_MS) {
