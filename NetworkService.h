@@ -348,15 +348,13 @@ void networkTask(void *pvParameters) {
       shouldFetchBinance = true;
     } else {
       if (!isKeypadOpen && !isBankModalOpen && !isWifiListOpen && !isWifiKbOpen) {
-        // Cálculo del intervalo adaptativo
-        unsigned long currentInterval = FETCH_INTERVAL_AWAKE_MS;
-        if (isScreensaverActive) {
-          currentInterval = FETCH_INTERVAL_SLEEP_MS; // 60s en salvapantallas
-        } else {
-          bool alertActive = (currentTradeType == "BUY") ? isAlertBuyActive : isAlertSellActive;
-          if (alertActive) {
-            currentInterval = FETCH_INTERVAL_ALERT_MS; // 15s si hay alerta activa
-          }
+        // Cálculo del intervalo adaptativo inteligente
+        bool alertActive = (currentTradeType == "BUY") ? isAlertBuyActive : isAlertSellActive;
+        unsigned long currentInterval = FETCH_INTERVAL_AWAKE_MS; // 25s en pantalla activa
+        if (alertActive) {
+          currentInterval = FETCH_INTERVAL_ALERT_MS; // 20s si hay alerta armada (incluso en salvapantallas)
+        } else if (isScreensaverActive) {
+          currentInterval = FETCH_INTERVAL_SLEEP_MS; // 90s en reposo normal sin alertas
         }
 
         if (now - lastFetchMillis >= currentInterval) {
