@@ -153,9 +153,9 @@ struct P2PAd {
 #define MAX_ADS 15
 
 // Refresco periódico - Intervalos Inteligentes (Optimización de cuota Vercel 100k/mes)
-const unsigned long FETCH_INTERVAL_AWAKE_MS = 20000; // 20 seg: Pantalla activa despierta
+const unsigned long FETCH_INTERVAL_AWAKE_MS = 25000; // 25 seg: Pantalla activa despierta (óptimo y seguro)
 const unsigned long FETCH_INTERVAL_SLEEP_MS = 60000; // 60 seg: Modo salvapantallas (reposo)
-const unsigned long FETCH_INTERVAL_ALERT_MS = 15000; // 15 seg: Si hay alerta activa en este mercado
+const unsigned long FETCH_INTERVAL_ALERT_MS = 20000; // 20 seg: Si hay alerta activa en este mercado
 const unsigned long FULL_ALERT_DURATION_MS  = 120000; // 2 minutos
 
 // TASAS DE CAMBIO: BCV E INTERVENCIÓN CAMBIARIA (+0.5%)
