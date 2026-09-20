@@ -71,6 +71,7 @@ String alertTriggeredTargetStr     = "";
 String alertTriggeredOrdersStr     = "";
 String alertTriggeredBankStr       = "";
 String alertTriggeredCryptoStr     = "";
+bool telegramAlertDelivered        = false; // Confirmación de entrega por HTTP 200 de Telegram
 
 // -----------------------------------------------------------------------------
 // GESTIÓN MULTI-WIFI Y MEMORIA NVS (Preferences)
@@ -343,7 +344,7 @@ void drawAlertNotificationBanner();
 void drawFullScreenAlert();
 void handleAlertModalTouch(int x, int y);
 void checkP2PAlerts();
-void sendTelegramP2PAlert(P2PAd topAd, float targetPrice);
+bool sendTelegramP2PAlert(P2PAd topAd, float targetPrice);
 
 // -----------------------------------------------------------------------------
 // CALCULADORA DE ARBITRAJE INTERVENCIÓN / P2P (Wizard Dual: USDT o VES)
@@ -663,17 +664,13 @@ bool fetchBinanceP2P(String tradeType) {
 // -----------------------------------------------------------------------------
 // SISTEMA DE ALERTAS: ENVÍO DE NOTIFICACIÓN A TELEGRAM Y VERIFICACIÓN
 // -----------------------------------------------------------------------------
-void sendTelegramP2PAlert(P2PAd topAd, float targetPrice) {
-  if (WiFi.status() != WL_CONNECTED) return;
+bool sendTelegramP2PAlert(P2PAd topAd, float targetPrice) {
+  if (WiFi.status() != WL_CONNECTED) return false;
 
   WiFiClientSecure alertClient;
   alertClient.setInsecure();
   HTTPClient alertHttp;
-  alertHttp.setTimeout(6000);
-
-  if (!alertHttp.begin(alertClient, TELEGRAM_ALERT_URL)) return;
-
-  alertHttp.addHeader("Content-Type", "application/json");
+  alertHttp.setTimeout(5000);
 
   StaticJsonDocument<512> alertDoc;
   alertDoc["chatId"] = TELEGRAM_CHAT_ID;
@@ -689,8 +686,32 @@ void sendTelegramP2PAlert(P2PAd topAd, float targetPrice) {
   String body;
   serializeJson(alertDoc, body);
 
-  alertHttp.POST(body);
-  alertHttp.end();
+  bool delivered = false;
+
+  // Hasta 3 intentos automáticos si hay microcortes de WiFi o latencia
+  for (int attempt = 1; attempt <= 3; attempt++) {
+    if (WiFi.status() != WL_CONNECTED) {
+      vTaskDelay(pdMS_TO_TICKS(800));
+      continue;
+    }
+
+    if (alertHttp.begin(alertClient, TELEGRAM_ALERT_URL)) {
+      alertHttp.addHeader("Content-Type", "application/json");
+      int httpCode = alertHttp.POST(body);
+      if (httpCode == HTTP_CODE_OK || httpCode == 201) {
+        delivered = true;
+        alertHttp.end();
+        break; // Confirmación exitosa de entrega
+      }
+      alertHttp.end();
+    }
+
+    if (attempt < 3) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+  }
+
+  return delivered;
 }
 
 void checkP2PAlerts() {
@@ -742,27 +763,39 @@ void checkP2PAlerts() {
     alertTriggeredBankStr = adsList[0].banks;
     alertTriggeredCryptoStr = adsList[0].crypto;
 
-    // Desactivar automáticamente la alerta al ser alcanzada (solo dispara 1 vez)
-    if (isBuy) {
-      isAlertBuyActive = false;
-      prefs.begin("p2p_alerts", false);
-      prefs.putBool("buy_act", false);
-      prefs.end();
-    } else {
-      isAlertSellActive = false;
-      prefs.begin("p2p_alerts", false);
-      prefs.putBool("sell_act", false);
-      prefs.end();
-    }
-
     // Si la pantalla estaba en salvapantallas, despertar de inmediato
     if (isScreensaverActive) {
       exitScreensaver();
+    } else {
+      drawFullScreenAlert();
     }
 
-    // Desplegar aviso a pantalla completa y enviar Telegram
-    drawFullScreenAlert();
-    sendTelegramP2PAlert(adsList[0], target);
+    // 1. Enviar notificación a Telegram con reintentos automáticos
+    bool telegramSuccess = sendTelegramP2PAlert(adsList[0], target);
+    telegramAlertDelivered = telegramSuccess;
+
+    // 2. SOLO si Telegram confirmó la recepción exitosa (HTTP 200), desactivar la meta en NVS
+    if (telegramSuccess) {
+      if (isBuy) {
+        isAlertBuyActive = false;
+        prefs.begin("p2p_alerts", false);
+        prefs.putBool("buy_act", false);
+        prefs.end();
+      } else {
+        isAlertSellActive = false;
+        prefs.begin("p2p_alerts", false);
+        prefs.putBool("sell_act", false);
+        prefs.end();
+      }
+      Serial.println("[ALERTA P2P] Notificacion entregada en Telegram. Meta cumplida y desactivada.");
+    } else {
+      Serial.println("[ALERTA P2P] Fallo de red con Telegram tras 3 intentos. Meta permanece ARMADA.");
+    }
+
+    // Actualizar pie de pantalla con el estado real de entrega
+    if (isFullScreenAlertOpen) {
+      drawFullScreenAlert();
+    }
   }
 }
 
@@ -1649,8 +1682,14 @@ void drawFullScreenAlert() {
   tft.setTextColor(TFT_WHITE, tft.color565(0x20, 0x2A, 0x38));
   tft.drawCentreString("TOCA LA PANTALLA PARA CERRAR", 160, 193, 2);
 
-  tft.setTextColor(COLOR_TEXT_GRAY, COLOR_BG);
-  tft.drawCentreString("Auto-cierre en 2 min | Meta cumplida y desactivada", 160, 222, 1);
+  tft.fillRect(10, 218, 300, 16, COLOR_BG);
+  if (telegramAlertDelivered) {
+    tft.setTextColor(COLOR_BUY_GREEN, COLOR_BG);
+    tft.drawCentreString("Telegram enviado OK | Meta cumplida y desactivada", 160, 222, 1);
+  } else {
+    tft.setTextColor(COLOR_BINANCE_YEL, COLOR_BG);
+    tft.drawCentreString("Sin conexion Telegram | Meta sigue armada", 160, 222, 1);
+  }
 }
 
 void drawBottomBar() {
