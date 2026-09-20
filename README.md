@@ -106,23 +106,38 @@ En la carpeta de tu librería `Arduino/libraries/TFT_eSPI/User_Setup.h`, asegúr
 
 ---
 
+## 📁 Estructura Modular del Proyecto
+
+El código está organizado en pestañas/módulos independientes para máxima claridad y facilidad de mantenimiento:
+
+- **`Config.h`**: Pines de hardware, constantes de tiempo, arrays de bancos y credenciales por defecto.
+- **`GlobalState.h`**: Objetos de hardware (`tft`, `ts`, `prefs`), variables de estado compartidas y helpers inline.
+- **`NetworkService.h`**: Tarea FreeRTOS Core 0, escáner WiFi, NVS de redes conocidas y clientes HTTP (P2P / BCV).
+- **`AlertService.h`**: Motor de alertas P2P #1, ventana modal de configuración, pantalla completa 320x240 y notificaciones Telegram con reintentos.
+- **`ArbitrageCalc.h`**: Calculadora táctil con wizard paso a paso para arbitraje cambiario (USDT / VES).
+- **`DisplayUI.h`**: Renderizado gráfico ST7789 a 55MHz, salvapantallas estelar, modales de bancos y teclado alfanumérico.
+- **`BinanceP2P_CYD.ino`**: Punto de entrada principal con `setup()` y `loop()` ultraliviano.
+
+---
+
 ## 🚀 Instalación y Puesta en Marcha
 
 1. Clona o descarga este repositorio:
    ```bash
    git clone https://github.com/venezposible-max/esp32-cyd-binance-p2p.git
    ```
-2. Abre la carpeta `BinanceP2P_CYD` y el archivo `BinanceP2P_CYD.ino` en el Arduino IDE.
-3. Al inicio del archivo, edita tus credenciales de red WiFi:
+2. Abre la carpeta `BinanceP2P_CYD` y el archivo `BinanceP2P_CYD.ino` en el Arduino IDE (se abrirán automáticamente todas las pestañas modulares).
+3. En la pestaña **`Config.h`**, edita tus credenciales de red WiFi y Chat ID de Telegram:
    ```cpp
    const char* DEFAULT_WIFI_SSID = "TU_RED_WIFI";
    const char* DEFAULT_WIFI_PASS = "TU_PASSWORD_WIFI";
+   const char* TELEGRAM_CHAT_ID   = "TU_CHAT_ID_TELEGRAM";
    ```
 4. Conecta tu placa ESP32 CYD vía USB.
 5. Selecciona en el menú de Arduino:
    - **Placa:** `ESP32 Dev Module`
    - **Flash Frequency:** `80MHz`
-   - **Partition Scheme:** `Huge APP (3MB No OTA/1MB SPIFFS)`
+   - **Partition Scheme:** `Huge APP (3MB No OTA/1MB SPIFFS)` o `Default 4MB with spiffs (1.2MB APP)`
    - **Upload Speed:** `921600`
 6. Haz clic en **Subir**. ¡Listo!
 
