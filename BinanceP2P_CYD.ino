@@ -2137,7 +2137,7 @@ void updateScreensaver() {
   if (p2pMutex != NULL && xSemaphoreTake(p2pMutex, pdMS_TO_TICKS(20)) == pdTRUE) {
     if (adsCount > 0) {
       binancePrice = adsList[0].price;
-      binanceVal = adsList[0].price.toFloat();
+      binanceVal = atof(adsList[0].price);
     }
     xSemaphoreGive(p2pMutex);
   }
