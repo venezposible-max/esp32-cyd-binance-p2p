@@ -70,12 +70,14 @@ inline void setBacklightBrightness(uint8_t brightness) {
   ledcWrite(0, brightness);
   ledcWrite(1, brightness);
 #endif
+  Serial.printf("[LEDC] Brillo Backlight ajustado a: %d / 255\n", brightness);
 }
 
 inline void initBacklight() {
 #if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
-  ledcAttach(BACKLIGHT_PIN_A, BACKLIGHT_FREQ, BACKLIGHT_RES);
-  ledcAttach(BACKLIGHT_PIN_B, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  bool okA = ledcAttach(BACKLIGHT_PIN_A, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  bool okB = ledcAttach(BACKLIGHT_PIN_B, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  Serial.printf("[LEDC] Backlight Attach pin %d: %s | pin %d: %s\n", BACKLIGHT_PIN_A, okA ? "OK" : "FAIL", BACKLIGHT_PIN_B, okB ? "OK" : "FAIL");
 #else
   ledcSetup(0, BACKLIGHT_FREQ, BACKLIGHT_RES);
   ledcAttachPin(BACKLIGHT_PIN_A, 0);

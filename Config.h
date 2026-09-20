@@ -183,7 +183,7 @@ struct ScreenStar {
 #define BACKLIGHT_FREQ    5000
 #define BACKLIGHT_RES     8
 #define BRIGHTNESS_FULL   255
-#define BRIGHTNESS_DIM    50  // ~20% brillo para descanso térmico en salvapantallas
+#define BRIGHTNESS_DIM    25  // ~10% ciclo de trabajo PWM (visualmente 25% tenue para descanso térmico)
 
 // TECLADOS VIRTUALES
 const char KB_R0_LOWER[10] = {'1','2','3','4','5','6','7','8','9','0'};

@@ -26,9 +26,6 @@ void setup() {
   // Crear Mutex de FreeRTOS para blindar memoria RAM entre Core 0 y Core 1
   p2pMutex = xSemaphoreCreateMutex();
 
-  // Control Inteligente de Retroiluminación (PWM Hardware)
-  initBacklight();
-
   // Configurar LED RGB posterior integrado en placa CYD (activo en nivel bajo / LOW)
   pinMode(RGB_LED_RED, OUTPUT);
   pinMode(RGB_LED_GREEN, OUTPUT);
@@ -50,6 +47,10 @@ void setup() {
   tft.setRotation(1); // Landscape (320 x 240)
   initColors();
   tft.fillScreen(COLOR_BG);
+
+  // Control Inteligente de Retroiluminación (PWM Hardware)
+  // DEBE IR DESPUÉS DE tft.init() para que TFT_eSPI no desconfigure el temporizador PWM
+  initBacklight();
 
   // Inicializar Táctil con bus independiente en orientación horizontal
   touchSpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
