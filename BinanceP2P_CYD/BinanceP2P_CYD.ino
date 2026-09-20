@@ -345,6 +345,8 @@ void drawFullScreenAlert();
 void handleAlertModalTouch(int x, int y);
 void checkP2PAlerts();
 bool sendTelegramP2PAlert(P2PAd topAd, float targetPrice);
+void initBacklight();
+void setBacklightBrightness(uint8_t brightness);
 
 // -----------------------------------------------------------------------------
 // CALCULADORA DE ARBITRAJE INTERVENCIÓN / P2P (Wizard Dual: USDT o VES)
@@ -2060,6 +2062,7 @@ void enterScreensaver() {
   if (!starsInitialized) {
     initScreensaverStars();
   }
+  setBacklightBrightness(BRIGHTNESS_DIM); // Atenuar brillo al 20% para descanso térmico
   tft.fillScreen(TFT_BLACK);
   ssCardX = random(15, 320 - SS_CARD_W - 15);
   ssCardY = random(15, 240 - SS_CARD_H - 15);
@@ -2071,6 +2074,7 @@ void exitScreensaver() {
   isScreensaverActive = false;
   lastUserInteractionMs = millis();
   requestImmediateFetch = true; // Consulta inmediata a Binance al despertar
+  setBacklightBrightness(BRIGHTNESS_FULL); // 100% brillo al despertar
   tft.fillScreen(COLOR_BG);
   drawUI();
 }
@@ -2998,6 +3002,39 @@ void handleTouch() {
 }
 
 // -----------------------------------------------------------------------------
+// CONTROL INTELIGENTE DE BRILLO Y BACKLIGHT (LEDC Hardware PWM)
+// -----------------------------------------------------------------------------
+#define BACKLIGHT_PIN_A   21
+#define BACKLIGHT_PIN_B   27
+#define BACKLIGHT_FREQ    5000
+#define BACKLIGHT_RES     8
+#define BRIGHTNESS_FULL   255
+#define BRIGHTNESS_DIM    50  // ~20% brillo para descanso térmico en salvapantallas
+
+void setBacklightBrightness(uint8_t brightness) {
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+  ledcWrite(BACKLIGHT_PIN_A, brightness);
+  ledcWrite(BACKLIGHT_PIN_B, brightness);
+#else
+  ledcWrite(0, brightness);
+  ledcWrite(1, brightness);
+#endif
+}
+
+void initBacklight() {
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+  ledcAttach(BACKLIGHT_PIN_A, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  ledcAttach(BACKLIGHT_PIN_B, BACKLIGHT_FREQ, BACKLIGHT_RES);
+#else
+  ledcSetup(0, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  ledcAttachPin(BACKLIGHT_PIN_A, 0);
+  ledcSetup(1, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  ledcAttachPin(BACKLIGHT_PIN_B, 1);
+#endif
+  setBacklightBrightness(BRIGHTNESS_FULL);
+}
+
+// -----------------------------------------------------------------------------
 // SETUP
 // -----------------------------------------------------------------------------
 void setup() {
@@ -3007,11 +3044,8 @@ void setup() {
   // Crear Mutex de FreeRTOS para blindar memoria RAM entre Core 0 y Core 1
   p2pMutex = xSemaphoreCreateMutex();
 
-  // Forzar backlight en pines 21 y 27
-  pinMode(21, OUTPUT);
-  digitalWrite(21, HIGH);
-  pinMode(27, OUTPUT);
-  digitalWrite(27, HIGH);
+  // Control Inteligente de Retroiluminación (PWM Hardware)
+  initBacklight();
 
   // Configurar LED RGB posterior integrado en placa CYD (activo en nivel bajo / LOW)
   pinMode(RGB_LED_RED, OUTPUT);
