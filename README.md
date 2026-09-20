@@ -35,6 +35,21 @@ Monitor financiero de escritorio en tiempo real para la pantalla **ESP32 Cheap Y
   - Fondo animado de 35 estrellas con efecto parallax.
   - Reloj flotante con tasas en vivo y despertar instantáneo al tocar la pantalla.
 
+- **🔔 Sistema de Alertas P2P (#1) y Notificaciones Push a Telegram:**
+  - Vigilancia del puesto #1 en tiempo real con metas independientes para Compra y Venta (guardadas en NVS).
+  - Alerta en **Pantalla Completa (320x240 estilo Telegram)** al cumplirse la meta, con datos del comerciante, órdenes, efectividad, banco y USDT disponibles.
+  - Temporizador de auto-cierre tras 2 minutos o cierre inmediato al tocar la pantalla.
+  - Auto-desactivación inteligente de la meta cumplida para evitar falsos positivos o repeticiones en bucle.
+  - Alarma visual mediante el LED RGB onboard integrado (parpadeo ámbar durante 12s).
+  - Despacho automático de notificación push a bot privado de Telegram con botones interactivos.
+
+- **⏱️ Intervalo Inteligente Adaptativo (Optimización de Cuotas):**
+  - Frecuencia dinámica: 20s con pantalla activa, 15s con alerta armada, 60s en modo reposo/salvapantallas y 5 min para la tasa BCV.
+  - Refresco instantáneo (0s) al despertar la pantalla o alternar filtros. Optimizado para operar 24/7 sin agotar límites de servidores serverless (Vercel).
+
+- **🛡️ Blindaje Multinúcleo con Mutex (FreeRTOS):**
+  - Sincronización atómica entre Core 0 (red) y Core 1 (gráfico/táctil) con exclusión mutua (`xSemaphoreCreateMutex`), eliminando condiciones de carrera y caídas por memoria rota.
+
 - **⚡ Arquitectura Multinúcleo FreeRTOS:**
   - El **Core 0** maneja las peticiones HTTP y WiFi en segundo plano.
   - El **Core 1** maneja el renderizado gráfico de alta velocidad a 55MHz nativos y la digitalización táctil sin congelamientos.
