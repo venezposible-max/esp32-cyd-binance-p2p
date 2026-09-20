@@ -2853,11 +2853,26 @@ void handleTouch() {
   lastUserInteractionMs = now;
 
   TS_Point p = ts.getPoint();
-  
-  int x = map(p.x, 250, 3750, 0, 320);
-  int y = map(p.y, 250, 3750, 0, 240);
-  x = constrain(x, 0, 320);
-  y = constrain(y, 0, 240);
+
+  // Filtrar toques fantasmas y ruido analógico descartando presiones espurias
+  if (p.z < 150) {
+    return;
+  }
+
+  // Doble muestra rápida para suavizado y eliminación de jitter analógico
+  if (ts.touched()) {
+    TS_Point p2 = ts.getPoint();
+    if (p2.z >= 150) {
+      p.x = (p.x + p2.x) / 2;
+      p.y = (p.y + p2.y) / 2;
+    }
+  }
+
+  // Mapeo calibrado de alta precisión para pantalla resistiva CYD (320x240) sin zonas muertas
+  int x = map(p.x, 200, 3750, 0, 319);
+  int y = map(p.y, 200, 3750, 0, 239);
+  x = constrain(x, 0, 319);
+  y = constrain(y, 0, 239);
 
   // 0. Si el modal de alerta #1 está abierto
   if (isAlertModalOpen) {
