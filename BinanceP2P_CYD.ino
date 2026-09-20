@@ -238,16 +238,28 @@ void initColors() {
 // -----------------------------------------------------------------------------
 // ESTRUCTURA DE DATOS PARA CADA ANUNCIO P2P
 // -----------------------------------------------------------------------------
+// ESTRUCTURA DE OFERTAS P2P (Buffers Fijos para erradicar fragmentación de RAM)
+// -----------------------------------------------------------------------------
 struct P2PAd {
-  String name;
-  int orders;
-  String rate;
-  String price;
-  String minLimit;
-  String maxLimit;
-  String crypto;
-  String banks;
+  char name[32];
+  int  orders;
+  char rate[12];
+  char price[14];
+  char minLimit[14];
+  char maxLimit[14];
+  char crypto[14];
+  char banks[48];
 };
+
+inline void safeStrCopy(char* dest, const char* src, size_t maxLen) {
+  if (!dest || maxLen == 0) return;
+  if (!src) {
+    dest[0] = '\0';
+    return;
+  }
+  strncpy(dest, src, maxLen - 1);
+  dest[maxLen - 1] = '\0';
+}
 
 #define MAX_ADS 15
 P2PAd adsList[MAX_ADS];
@@ -599,21 +611,24 @@ bool fetchBinanceP2P(String tradeType) {
       int tempCount = 0;
       for (JsonObject item : arr) {
         if (tempCount >= MAX_ADS) break;
-        tempAds[tempCount].name     = item["name"].as<String>();
-        tempAds[tempCount].orders   = item["orders"].as<int>();
-        tempAds[tempCount].rate     = item["rate"].as<String>();
-        tempAds[tempCount].price    = item["price"].as<String>();
-        tempAds[tempCount].minLimit = item["min"].as<String>();
-        tempAds[tempCount].maxLimit = item["max"].as<String>();
-        tempAds[tempCount].crypto   = item["crypto"].as<String>();
+        safeStrCopy(tempAds[tempCount].name, item["name"] | "", sizeof(tempAds[tempCount].name));
+        tempAds[tempCount].orders   = item["orders"] | 0;
+        safeStrCopy(tempAds[tempCount].rate, item["rate"] | "", sizeof(tempAds[tempCount].rate));
+        safeStrCopy(tempAds[tempCount].price, item["price"] | "", sizeof(tempAds[tempCount].price));
+        safeStrCopy(tempAds[tempCount].minLimit, item["min"] | "", sizeof(tempAds[tempCount].minLimit));
+        safeStrCopy(tempAds[tempCount].maxLimit, item["max"] | "", sizeof(tempAds[tempCount].maxLimit));
+        safeStrCopy(tempAds[tempCount].crypto, item["crypto"] | "", sizeof(tempAds[tempCount].crypto));
         
+        tempAds[tempCount].banks[0] = '\0';
         JsonArray banksArr = item["banks"].as<JsonArray>();
-        String bStr = "";
         for (JsonVariant b : banksArr) {
-          if (bStr.length() > 0) bStr += " - ";
-          bStr += b.as<String>();
+          const char* bName = b.as<const char*>();
+          if (!bName) continue;
+          if (tempAds[tempCount].banks[0] != '\0') {
+            strncat(tempAds[tempCount].banks, " - ", sizeof(tempAds[tempCount].banks) - strlen(tempAds[tempCount].banks) - 1);
+          }
+          strncat(tempAds[tempCount].banks, bName, sizeof(tempAds[tempCount].banks) - strlen(tempAds[tempCount].banks) - 1);
         }
-        tempAds[tempCount].banks = bStr;
         tempCount++;
       }
 
@@ -1034,7 +1049,7 @@ void drawAdsList() {
 
     // Fila 1: Avatar inicial
     tft.fillCircle(16, cardY + 13, 7, tft.color565(0x35, 0x40, 0x50));
-    char initial = localAds[i].name.length() > 0 ? localAds[i].name[0] : 'U';
+    char initial = (localAds[i].name[0] != '\0') ? localAds[i].name[0] : 'U';
     tft.setTextColor(TFT_WHITE, tft.color565(0x35, 0x40, 0x50));
     tft.drawCentreString(String(initial), 16, cardY + 8, 1);
 
@@ -1052,7 +1067,7 @@ void drawAdsList() {
     // Fila 2: Precio en grande (Verde o Rojo)
     bool isBuy = (currentTradeType == "BUY");
     tft.setTextColor(isBuy ? COLOR_BUY_GREEN : COLOR_SELL_RED, COLOR_CARD_BG);
-    tft.drawString("Bs " + localAds[i].price, 10, cardY + 24, 4);
+    tft.drawString(String("Bs ") + localAds[i].price, 10, cardY + 24, 4);
 
     // Fila 2: Cápsula de Saldo Disponible en USDT (Reemplaza botón redundante)
     tft.fillRoundRect(196, cardY + 23, 114, 19, 4, tft.color565(0x16, 0x20, 0x2C));
@@ -1066,7 +1081,7 @@ void drawAdsList() {
 
     // Fila 3: Límites
     tft.setTextColor(tft.color565(0x84, 0x8E, 0x9C), COLOR_CARD_BG);
-    String lim = "Lim: " + localAds[i].minLimit + " - " + localAds[i].maxLimit;
+    String lim = String("Lim: ") + localAds[i].minLimit + " - " + localAds[i].maxLimit;
     if (lim.length() > 28) lim = lim.substring(0, 27) + "..";
     tft.drawString(lim, 10, cardY + 48, 1);
 
@@ -3049,6 +3064,21 @@ void loop() {
   handleTouch();
 
   unsigned long now = millis();
+
+  // ---------------------------------------------------------------------------
+  // VIGILANCIA PREVENTIVA DE MEMORIA RAM (Heap Watchdog 24/7)
+  // ---------------------------------------------------------------------------
+  static unsigned long lastHeapWatchdogMs = 0;
+  if (now - lastHeapWatchdogMs >= 30000) { // Comprobar cada 30 segundos
+    lastHeapWatchdogMs = now;
+    uint32_t freeH = ESP.getFreeHeap();
+    uint32_t minH  = ESP.getMinFreeHeap();
+    if (freeH < 32000 || minH < 24000) {
+      Serial.printf("[HEAP WATCHDOG] Memoria crítica (%u bytes). Reinicio preventivo...\n", freeH);
+      delay(200);
+      esp_restart();
+    }
+  }
 
   // Si la alarma de precio está disparada, hacer parpadear el LED RGB onboard durante 12 segundos
   if (isAlertFlashing) {
