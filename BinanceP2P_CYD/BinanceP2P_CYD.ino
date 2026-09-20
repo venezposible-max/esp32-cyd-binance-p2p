@@ -345,8 +345,39 @@ void drawFullScreenAlert();
 void handleAlertModalTouch(int x, int y);
 void checkP2PAlerts();
 bool sendTelegramP2PAlert(P2PAd topAd, float targetPrice);
-void initBacklight();
-void setBacklightBrightness(uint8_t brightness);
+
+// -----------------------------------------------------------------------------
+// CONTROL INTELIGENTE DE BRILLO Y BACKLIGHT (LEDC Hardware PWM)
+// -----------------------------------------------------------------------------
+#define BACKLIGHT_PIN_A   21
+#define BACKLIGHT_PIN_B   27
+#define BACKLIGHT_FREQ    5000
+#define BACKLIGHT_RES     8
+#define BRIGHTNESS_FULL   255
+#define BRIGHTNESS_DIM    50  // ~20% brillo para descanso térmico en salvapantallas
+
+void setBacklightBrightness(uint8_t brightness) {
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+  ledcWrite(BACKLIGHT_PIN_A, brightness);
+  ledcWrite(BACKLIGHT_PIN_B, brightness);
+#else
+  ledcWrite(0, brightness);
+  ledcWrite(1, brightness);
+#endif
+}
+
+void initBacklight() {
+#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
+  ledcAttach(BACKLIGHT_PIN_A, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  ledcAttach(BACKLIGHT_PIN_B, BACKLIGHT_FREQ, BACKLIGHT_RES);
+#else
+  ledcSetup(0, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  ledcAttachPin(BACKLIGHT_PIN_A, 0);
+  ledcSetup(1, BACKLIGHT_FREQ, BACKLIGHT_RES);
+  ledcAttachPin(BACKLIGHT_PIN_B, 1);
+#endif
+  setBacklightBrightness(BRIGHTNESS_FULL);
+}
 
 // -----------------------------------------------------------------------------
 // CALCULADORA DE ARBITRAJE INTERVENCIÓN / P2P (Wizard Dual: USDT o VES)
@@ -2999,39 +3030,6 @@ void handleTouch() {
       }
     }
   }
-}
-
-// -----------------------------------------------------------------------------
-// CONTROL INTELIGENTE DE BRILLO Y BACKLIGHT (LEDC Hardware PWM)
-// -----------------------------------------------------------------------------
-#define BACKLIGHT_PIN_A   21
-#define BACKLIGHT_PIN_B   27
-#define BACKLIGHT_FREQ    5000
-#define BACKLIGHT_RES     8
-#define BRIGHTNESS_FULL   255
-#define BRIGHTNESS_DIM    50  // ~20% brillo para descanso térmico en salvapantallas
-
-void setBacklightBrightness(uint8_t brightness) {
-#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
-  ledcWrite(BACKLIGHT_PIN_A, brightness);
-  ledcWrite(BACKLIGHT_PIN_B, brightness);
-#else
-  ledcWrite(0, brightness);
-  ledcWrite(1, brightness);
-#endif
-}
-
-void initBacklight() {
-#if ESP_ARDUINO_VERSION >= ESP_ARDUINO_VERSION_VAL(3, 0, 0)
-  ledcAttach(BACKLIGHT_PIN_A, BACKLIGHT_FREQ, BACKLIGHT_RES);
-  ledcAttach(BACKLIGHT_PIN_B, BACKLIGHT_FREQ, BACKLIGHT_RES);
-#else
-  ledcSetup(0, BACKLIGHT_FREQ, BACKLIGHT_RES);
-  ledcAttachPin(BACKLIGHT_PIN_A, 0);
-  ledcSetup(1, BACKLIGHT_FREQ, BACKLIGHT_RES);
-  ledcAttachPin(BACKLIGHT_PIN_B, 1);
-#endif
-  setBacklightBrightness(BRIGHTNESS_FULL);
 }
 
 // -----------------------------------------------------------------------------
