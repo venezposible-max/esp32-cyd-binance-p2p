@@ -237,7 +237,7 @@ bool fetchBinanceP2P(String tradeType) {
     return false;
   }
 
-  http.setTimeout(5000);
+  http.setTimeout(9000);
   int httpCode = http.GET();
 
   if (httpCode == HTTP_CODE_OK) {
@@ -256,7 +256,7 @@ bool fetchBinanceP2P(String tradeType) {
     adFilter["crypto"] = true;
     adFilter["banks"] = true;
 
-    DynamicJsonDocument doc(4096);
+    DynamicJsonDocument doc(6144);
     DeserializationError error = deserializeJson(doc, payload, DeserializationOption::Filter(filter));
 
     if (!error && doc["success"]) {
